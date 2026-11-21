@@ -1,6 +1,6 @@
 [phases.setup]
 aptPkgs = [
     "pkg-config",
-    "libmysqlclient-dev"
+    "libmysqlclient-dev",
     "libzstd1"
 ]
