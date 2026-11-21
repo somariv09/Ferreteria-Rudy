@@ -2,4 +2,5 @@
 aptPkgs = [
     "pkg-config",
     "libmysqlclient-dev"
+    "libzstd1"
 ]
