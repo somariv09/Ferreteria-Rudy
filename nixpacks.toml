@@ -1,7 +1,8 @@
 [phases.install]
 cmds = [
     "sudo apt-get update && sudo apt-get install -y --no-install-recommends pkg-config default-libmysqlclient-dev libzstd1",
-    "python -m venv --copies /opt/venv && . /opt/venv/bin/activate && pip install -r requirements.txt"
+    "export MYSQLCLIENT_CFLAGS='-I/usr/include/mysql -I/usr/include -std=c99' && export MYSQLCLIENT_LDFLAGS='-lmysqlclient' && python -m venv --copies /opt/venv && . /opt/venv/bin/activate && pip install -r requirements.txt"
 ]
+
 
 
