@@ -175,11 +175,6 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 CLOUDINARY_URL = os.getenv('CLOUDINARY_URL')
 
-if not CLOUDINARY_URL:
-    raise ImproperlyConfigured(
-        'No se ha configurado CLOUDINARY_URL en el archivo .env'
-    )
-
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
