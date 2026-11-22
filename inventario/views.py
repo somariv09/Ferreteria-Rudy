@@ -1,7 +1,12 @@
 import os
 from django.shortcuts import render, redirect
 
-from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
+from django.contrib.auth import (
+    authenticate,
+    login as auth_login,
+    logout as auth_logout,
+    update_session_auth_hash
+)
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 
@@ -18,6 +23,7 @@ from django.db.models import Q, F
 from django.shortcuts import render, redirect, get_object_or_404 
 
 from .models import Categoria, Producto, Movimiento
+from usuarios.models import Usuario
 
 #request solicitud del navegador
 def login(request, modo='normal'):
@@ -536,3 +542,49 @@ def reactivarCategoria(request, id_categoria):
     categoria.save(update_fields=['activo'])
 
     return redirect('registrosInactivos')
+
+@login_required
+def editarMiCuenta(request):
+
+    usuario_actual = request.user
+    error = None
+    exito = None
+
+    if request.method == 'POST':
+
+        nombre = request.POST.get('nombre', '').strip()
+        nuevo_usuario = request.POST.get('usuario', '').strip()
+        nueva_password = request.POST.get('nueva_password', '')
+        confirmar_password = request.POST.get('confirmar_password', '')
+
+        if not nombre or not nuevo_usuario:
+            error = 'EL NOMBRE Y EL USUARIO SON OBLIGATORIOS'
+
+        elif Usuario.objects.exclude(
+            pk=usuario_actual.pk
+        ).filter(usuario=nuevo_usuario).exists():
+            error = 'EL NOMBRE DE USUARIO YA ESTÁ EN USO'
+
+        elif nueva_password and nueva_password != confirmar_password:
+            error = 'LAS CONTRASEÑAS NO COINCIDEN'
+
+        else:
+
+            usuario_actual.nombre = nombre
+            usuario_actual.usuario = nuevo_usuario
+
+            if nueva_password:
+                usuario_actual.set_password(nueva_password)
+
+            usuario_actual.save()
+
+            if nueva_password:
+                update_session_auth_hash(request, usuario_actual)
+
+            exito = 'LOS DATOS DE TU CUENTA SE ACTUALIZARON CORRECTAMENTE'
+
+    return render(request, 'editarCuenta.html', {
+        'error': error,
+        'exito': exito,
+        'usuario': usuario_actual
+    })

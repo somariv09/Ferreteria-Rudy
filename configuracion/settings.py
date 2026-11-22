@@ -201,3 +201,12 @@ if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+
+# Cerrar sesión después de 15 minutos de inactividad.
+SESSION_COOKIE_AGE = 900
+
+# La sesión se elimina al cerrar el navegador.
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+
+# Reiniciar el tiempo de expiración con cada solicitud.
+SESSION_SAVE_EVERY_REQUEST = True

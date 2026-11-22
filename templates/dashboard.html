@@ -111,6 +111,11 @@
                     <span>Registros inactivos</span>
                 </a>
 
+                <a href="{% url 'editarMiCuenta' %}" class="enlace-menu">
+                    <i class="bi bi-person-circle"></i>
+                    Mi cuenta
+                </a>
+
             </div>
 
         </section>
@@ -139,7 +144,7 @@
 
                         <tr>
 
-                            <td>{{ movimiento.codigo_movimiento }}</td>
+                            <td>{{ movimiento.producto.codigo_producto }}</td>
 
                             <td>{{ movimiento.producto.nombre }}</td>
 

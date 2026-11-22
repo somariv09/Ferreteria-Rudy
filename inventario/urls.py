@@ -29,4 +29,5 @@ urlpatterns=[
     path('reactivar-producto/<int:id_producto>/', views.reactivarProducto,name='reactivarProducto'),
     path('reactivar-categoria/<int:id_categoria>/',views.reactivarCategoria, name='reactivarCategoria'),
 
+    path('mi-cuenta/editar/', views.editarMiCuenta, name='editarMiCuenta'),
 ]
