@@ -108,6 +108,23 @@
                     </select>
                 </div>
 
+
+                <div class="mb-3">
+                    <label for="unidad_base" class="form-label">
+                        Unidad base
+                    </label>
+
+                    <input type="text" id="unidad_base"
+                        class="form-control"
+                        value="{{ producto.unidad_base.nombre }} ({{ producto.unidad_base.abreviatura }})"
+                        readonly>
+
+                    <small class="text-muted">
+                        La unidad base no se puede modificar después de registrar el producto.
+                    </small>
+                </div>
+
+
                 <div class="mb-3">
                     <label for="descripcion" class="form-label">Descripción</label>
 
@@ -124,14 +141,16 @@
                            value="{{ producto.cantidad }}" readonly>
                 </div>
 
+                
                 <div class="mb-3">
-                    <label for="precio" class="form-label">Precio unitario</label>
+                    <label for="precio" class="form-label">Precio por unidad base</label>
 
                     <input type="number" id="precio" name="precio"
-                           class="form-control"
-                           value="{{ producto.precio_unitario }}"
-                           min="0.01" step="0.01" required>
+                        class="form-control"
+                        value="{{ producto.precio_unitario }}"
+                        min="0" step="0.01" required>
                 </div>
+
 
                 <div class="mb-3">
                     <label for="stockMinimo" class="form-label">Stock mínimo</label>
@@ -139,7 +158,7 @@
                     <input type="number" id="stockMinimo" name="stockMinimo"
                            class="form-control"
                            value="{{ producto.stock_minimo }}"
-                           min="0" required>
+                           min="0" step="1" required>
 
                     <small class="text-muted">
                         Se generará una alerta cuando las existencias lleguen a este nivel.

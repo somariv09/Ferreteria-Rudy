@@ -123,46 +123,6 @@ class Producto(models.Model):
         return self.nombre
 
 
-class ConversionProducto(models.Model):
-
-    id_conversion = models.AutoField(primary_key=True)
-
-    producto = models.ForeignKey(
-        Producto,
-        on_delete=models.DO_NOTHING,
-        db_column='id_producto',
-        related_name='conversiones'
-    )
-
-    unidad = models.ForeignKey(
-        UnidadMedida,
-        on_delete=models.DO_NOTHING,
-        db_column='id_unidad',
-        related_name='conversiones'
-    )
-
-    factor = models.DecimalField(
-        max_digits=18,
-        decimal_places=8,
-        validators=[MinValueValidator(Decimal('0.00000001'))]
-    )
-
-    activo = models.BooleanField(default=True)
-
-    class Meta:
-        db_table = 'conversion_producto'
-        managed = False
-        constraints = [
-            models.UniqueConstraint(
-                fields=['producto', 'unidad'],
-                name='uq_conversion_producto_unidad'
-            )
-        ]
-
-    def __str__(self):
-        return f"{self.producto.nombre} - {self.unidad.abreviatura}"
-
-
 class Movimiento(models.Model):
 
     ENTRADA = 'ENTRADA'
@@ -191,16 +151,6 @@ class Movimiento(models.Model):
     )
 
     fecha = models.DateTimeField(default=timezone.now)
-
-    factor_conversion = models.DecimalField(
-        max_digits=18,
-        decimal_places=8
-    )
-
-    cantidad_base = models.DecimalField(
-        max_digits=18,
-        decimal_places=8
-    )
 
     usuario = models.ForeignKey(
         'usuarios.Usuario',

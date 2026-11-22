@@ -53,7 +53,7 @@
 
                         {% for producto in productos %}
                         <option value="{{ producto.id_producto }}">
-                            {{ producto.codigo_producto }} - {{ producto.nombre }} -(Disponible: {{ producto.cantidad }})
+                            {{ producto.codigo_producto }} - {{ producto.nombre }} -(Disponible: {{ producto.cantidad|floatformat:0}})
                         </option>
                         {% endfor %}
                     </select>

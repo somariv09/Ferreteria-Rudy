@@ -30,7 +30,8 @@
                 <form method="POST" action="{% url 'logout' %}">
                     {% csrf_token %}
                     <button type="submit" class="cerrar-sesion" title="Cerrar Sesión" aria-label="Cerrar sesión">
-                        <i class="bi bi-box-arrow-right" ></i></button>
+                        <i class="bi bi-box-arrow-right"></i>
+                    </button>
                 </form>
             </div>
 
@@ -92,6 +93,7 @@
 
                     <select id="categoria" name="categoria"
                             class="form-select" required>
+
                         <option value="" selected disabled>
                             Selecciona una categoría
                         </option>
@@ -101,7 +103,35 @@
                                 {{ categoria.nombre }}
                             </option>
                         {% endfor %}
+
                     </select>
+                </div>
+
+                <!-- Unidad base del producto -->
+                <div class="mb-3">
+                    <label for="unidad_base" class="form-label">
+                        Unidad base
+                    </label>
+
+                    <select id="unidad_base" name="unidad_base"
+                            class="form-select" required>
+
+                        <option value="" selected disabled>
+                            Selecciona una unidad de medida
+                        </option>
+
+                        {% for unidad in unidades %}
+                            <option value="{{ unidad.id_unidad }}">
+                                {{ unidad.nombre }} ({{ unidad.abreviatura }})
+                            </option>
+                        {% endfor %}
+
+                    </select>
+
+                    <small class="text-muted">
+                        Esta será la unidad principal utilizada para controlar
+                        las existencias del producto.
+                    </small>
                 </div>
 
                 <div class="mb-3">
@@ -118,7 +148,7 @@
 
                     <input type="number" id="cantidad" name="cantidad"
                            class="form-control" min="0"
-                           placeholder="Ingresa las existencias iniciales"
+                           placeholder="Ingresa las existencias iniciales" step="1"
                            required>
                 </div>
 
@@ -135,7 +165,7 @@
 
                     <input type="number" id="stockMinimo" name="stockMinimo"
                            class="form-control" min="0"
-                           placeholder="Ej. 5" required>
+                           placeholder="Ej. 5" step="1" required>
 
                     <small class="text-muted">
                         Se generará una alerta cuando las existencias lleguen a este nivel.

@@ -4,7 +4,6 @@ from django.contrib.auth import (
     authenticate,
     login as auth_login,
     logout as auth_logout,
-    update_session_auth_hash
 )
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
@@ -21,10 +20,18 @@ from decimal import Decimal, InvalidOperation
 from django.db.models import Q, F
 from django.shortcuts import render, redirect, get_object_or_404 
 
-from .models import Categoria, Producto, Movimiento
+from .models import Categoria, Producto, Movimiento, UnidadMedida
 from usuarios.views import (tiene_autorizacion_reactivacion, roles_permitidos)
 
 from usuarios.models import Usuario
+
+TIPOS_UNIDAD = [
+    ('Conteo', 'Conteo'),
+    ('Presentación', 'Presentación'),
+    ('Peso', 'Peso'),
+    ('Longitud', 'Longitud'),
+    ('Volumen', 'Volumen'),
+]
 
 
 @login_required
@@ -78,7 +85,10 @@ def registroEntrada(request):
         if not error:
             try:
                 with transaction.atomic():
-                    productos=Producto.objects.select_for_update().get(id_producto=productoID)
+                    producto = Producto.objects.select_for_update().get(
+                        id_producto=productoID,
+                        activo=True
+                    )
 
                     ultimoMovimiento=Movimiento.objects.filter(codigo_movimiento__startswith="MOV-").order_by('-id_movimiento').first()
 
@@ -90,8 +100,8 @@ def registroEntrada(request):
 
                     codigo=f"MOV-{ultimoNumero+1:04d}"
 
-                    productos.cantidad+=cantidad
-                    productos.save(update_fields=['cantidad'])
+                    producto.cantidad+=cantidad
+                    producto.save(update_fields=['cantidad'])
 
                     Movimiento.objects.create(
                         codigo_movimiento=codigo,
@@ -99,63 +109,91 @@ def registroEntrada(request):
                         cantidad=cantidad,
                         fecha=timezone.now(),
                         usuario=request.user,
-                        producto=productos
+                        producto=producto,
+                        unidad=producto.unidad_base
                     )
                 return redirect('dashboard')
             except Producto.DoesNotExist:
                 error="El producto no existe"
     return render(request, 'registroEntrada.html', {'error':error, 'productos':productos})
 
+
 @login_required
 @roles_permitidos(Usuario.ADMIN, Usuario.USUARIO)
 def registroSalida(request):
-    error=None
-    
-    productos=Producto.objects.filter(activo=True).order_by("nombre")
-    
-    if request.method=="POST":
-        productoID=request.POST.get('producto', '')
-        cantidad=request.POST.get('cantidad', '')
+    error = None
+
+    productos = Producto.objects.filter(activo=True).order_by("nombre")
+
+    if request.method == "POST":
+        productoID = request.POST.get('producto', '')
+        cantidad = request.POST.get('cantidad', '')
 
         try:
-            productoID= int(productoID)
-            cantidad=int(cantidad)
+            productoID = int(productoID)
+            cantidad = int(cantidad)
 
-            if cantidad<=0:
-                error="El valor debe ser mayor a cero."
-        except(ValueError, TypeError):
-            error="Seleccione un producto e ingrese la cantidad"
+            if cantidad <= 0:
+                error = "El valor debe ser mayor a cero."
+
+        except (ValueError, TypeError):
+            error = "Seleccione un producto e ingrese una cantidad válida."
 
         if not error:
             try:
                 with transaction.atomic():
-                    productos=Producto.objects.select_for_update().get(id_producto=productoID)
-
-                    ultimoMovimiento=Movimiento.objects.filter(codigo_movimiento__startswith="MOV-").order_by('-id_movimiento').first()
-
-                    if ultimoMovimiento:
-                        #Separar el string en 2 y obtener la parte del numero
-                        ultimoNumero=int(ultimoMovimiento.codigo_movimiento.rsplit('-',1)[1])
-                    else:
-                        ultimoNumero=0
-
-                    codigo=f"MOV-{ultimoNumero+1:04d}"
-
-                    productos.cantidad-=cantidad
-                    productos.save(update_fields=['cantidad'])
-
-                    Movimiento.objects.create(
-                        codigo_movimiento=codigo,
-                        tipo_movimiento=Movimiento.SALIDA,
-                        cantidad=cantidad,
-                        fecha=timezone.now(),
-                        usuario=request.user,
-                        producto=productos
+                    producto = Producto.objects.select_for_update().get(
+                        id_producto=productoID,
+                        activo=True
                     )
-                return redirect('dashboard')
+
+                    # Validar existencias disponibles
+                    if cantidad > producto.cantidad:
+                        error = (
+                            f"No hay existencias suficientes. "
+                        )
+                    else:
+                        ultimoMovimiento = (
+                            Movimiento.objects
+                            .filter(codigo_movimiento__startswith="MOV-")
+                            .order_by('-id_movimiento')
+                            .first()
+                        )
+
+                        if ultimoMovimiento:
+                            ultimoNumero = int(
+                                ultimoMovimiento.codigo_movimiento.rsplit('-', 1)[1]
+                            )
+                        else:
+                            ultimoNumero = 0
+
+                        codigo = f"MOV-{ultimoNumero + 1:04d}"
+
+                        producto.cantidad -= cantidad
+                        producto.save(update_fields=['cantidad'])
+
+                        Movimiento.objects.create(
+                            codigo_movimiento=codigo,
+                            tipo_movimiento=Movimiento.SALIDA,
+                            cantidad=cantidad,
+                            fecha=timezone.now(),
+                            usuario=request.user,
+                            producto=producto,
+                            unidad=producto.unidad_base
+                        )
+
+                if not error:
+                    return redirect('dashboard')
+
             except Producto.DoesNotExist:
-                error="El producto no existe"
-    return render(request, 'registroSalida.html', {'error':error, 'productos':productos})
+                error = "El producto no existe."
+
+    return render(
+        request,
+        'registroSalida.html',
+        {'error': error, 'productos': productos}
+    )
+
 
 @login_required
 @roles_permitidos(Usuario.ADMIN, Usuario.USUARIO)
@@ -206,57 +244,108 @@ def catalogoProducto(request):
         }
     })
 
+
 @login_required
 @roles_permitidos(Usuario.ADMIN)
 def agregarProducto(request):
-    error= None
 
-    categorias= Categoria.objects.filter(activo=True).order_by("nombre")
+    error = None
 
-    if request.method=="POST":
-        imagen=request.FILES.get('imagen')
-        codigo=request.POST.get('codigo','').strip().upper()
-        nombre=request.POST.get('nombre','').strip().upper()
-        #Recibe el valor numerico del id
-        categoria=request.POST.get('categoria','')
-        descripcion=request.POST.get('descripcion','').strip()
-        cantidad=request.POST.get('cantidad','')
-        precio=request.POST.get('precio','')
-        stockMinimo=request.POST.get('stockMinimo','')
+    categorias = Categoria.objects.filter(
+        activo=True
+    ).order_by("nombre")
 
-        ruta_imagen=None
-    
-        if not codigo or not nombre or not categoria:
-            error="Debe ingresar los campos de código, nombre y categoria."
-    
+    unidades = UnidadMedida.objects.filter(
+        activo=True
+    ).order_by("nombre")
+
+    if request.method == "POST":
+
+        imagen = request.FILES.get('imagen')
+        codigo = request.POST.get('codigo', '').strip().upper()
+        nombre = request.POST.get('nombre', '').strip().upper()
+        categoria_id = request.POST.get('categoria', '')
+        unidad_base_id = request.POST.get('unidad_base', '')
+        descripcion = request.POST.get('descripcion', '').strip()
+        cantidad = request.POST.get('cantidad', '')
+        precio = request.POST.get('precio', '')
+        stockMinimo = request.POST.get('stockMinimo', '')
+
+        ruta_imagen = None
+
+        categoria = None
+        unidad_base = None
+
+        if not codigo or not nombre or not categoria_id or not unidad_base_id:
+            error = "Debe completar el código, nombre, categoría y unidad base."
+
         elif not cantidad or not precio or not stockMinimo:
-            error="Ingrese los campos de cantidad, precio y stock mínimo"
-    
+            error = "Ingrese la cantidad, precio y stock mínimo."
+
+        elif Producto.objects.filter(codigo_producto=codigo).exists():
+            error = "Ya existe un producto con ese código."
+
         elif Producto.objects.filter(nombre=nombre).exists():
-            error="El producto ya existe"
-    
+            error = "El producto ya existe."
+
         else:
             try:
-                cantidad=int(cantidad)
-                precio=Decimal(precio)
-                stockMinimo=int(stockMinimo)
-    
-                if cantidad < 0 or precio < 0:
-                    error="Cantidad y precio no puede ser menor a 0"
-    
-                elif stockMinimo < 5:
-                    error="El stock minimo debe ser mayor o igual a cinco"
+                cantidad = Decimal(cantidad)
+                precio = Decimal(precio)
+                stockMinimo = Decimal(stockMinimo)
 
-            except(ValueError, InvalidOperation):
-                error= "La cantidad, precio o stock minimo no tiene un formato válido"
-    
+                if not all(valor.is_finite() for valor in (cantidad, precio, stockMinimo)):
+                    error = "Los valores numéricos deben ser válidos."
+
+                elif cantidad != cantidad.to_integral_value():
+                    error = "La cantidad debe ser un número entero."
+
+                elif stockMinimo != stockMinimo.to_integral_value():
+                    error = "El stock mínimo debe ser un número entero."
+
+                elif cantidad < 0 or precio < 0:
+                    error = "La cantidad y el precio no pueden ser menores a cero."
+
+                elif stockMinimo < 3:
+                    error = "El stock mínimo debe ser mayor o igual a tres."
+
+            except (ValueError, InvalidOperation):
+                error = "La cantidad, precio o stock mínimo tiene un formato no válido."
+
+            # Validar categoría y unidad base.
+            if not error:
+
+                try:
+                    categoria_id = int(categoria_id)
+                    unidad_base_id = int(unidad_base_id)
+
+                    categoria = Categoria.objects.filter(
+                        id_categoria=categoria_id,
+                        activo=True
+                    ).first()
+
+                    unidad_base = UnidadMedida.objects.filter(
+                        id_unidad=unidad_base_id,
+                        activo=True
+                    ).first()
+
+                    if not categoria:
+                        error = "La categoría seleccionada no existe o está inactiva."
+
+                    elif not unidad_base:
+                        error = "La unidad seleccionada no existe o está inactiva."
+
+                except (ValueError, TypeError):
+                    error = "La categoría o unidad seleccionada no es válida."
+
+            # Validar imagen.
             if not error and imagen:
 
                 if os.path.splitext(imagen.name)[1].lower() not in ['.jpg', '.jpeg', '.png']:
-                    error = "La imagen debe ser JPG, JPEG, PNG"
+                    error = "La imagen debe ser JPG, JPEG o PNG."
 
-                elif imagen.size > 2*1024*1024:
-                    error = "La imagen supera los 2MB"
+                elif imagen.size > 2 * 1024 * 1024:
+                    error = "La imagen supera los 2MB."
 
                 else:
                     nombre_archivo = os.path.basename(imagen.name)
@@ -265,27 +354,50 @@ def agregarProducto(request):
                         f'productos/{nombre_archivo}',
                         imagen
                     )
-        
-        if not error:
-            Producto.objects.create(
-                imagen=ruta_imagen,
-                codigo_producto=codigo,
-                nombre=nombre,
-                categoria_id=categoria,
-                descripcion=descripcion,
-                cantidad=cantidad,
-                precio_unitario=precio,
-                stock_minimo=stockMinimo       
-            )
-            return redirect('catalogoProducto')
-    return render(request, 'agregarProducto.html', {'error':error, "categorias":categorias})
+
+            # Registrar producto y conversión base.
+            if not error:
+
+                try:
+                    with transaction.atomic():
+
+                        producto = Producto.objects.create(
+                            imagen=ruta_imagen,
+                            codigo_producto=codigo,
+                            nombre=nombre,
+                            categoria=categoria,
+                            unidad_base=unidad_base,
+                            descripcion=descripcion,
+                            cantidad=cantidad,
+                            precio_unitario=precio,
+                            stock_minimo=stockMinimo
+                        )
+
+                    return redirect('catalogoProducto')
+
+                except Exception:
+                    error = (
+                        "No se pudo registrar el producto. "
+                        "Verifique los datos e inténtelo nuevamente."
+                    )
+
+    return render(request, 'agregarProducto.html', {
+        'error': error,
+        'categorias': categorias,
+        'unidades': unidades
+    })
+
 
 @login_required
 @roles_permitidos(Usuario.ADMIN)
 def editarProducto(request, id_producto):
 
     producto = get_object_or_404(Producto, id_producto=id_producto)
-    categorias = Categoria.objects.filter(activo=True).order_by('nombre')
+
+    categorias = Categoria.objects.filter(
+        activo=True
+    ).order_by('nombre')
+
     error = None
 
     if request.method == "POST":
@@ -299,47 +411,85 @@ def editarProducto(request, id_producto):
         stockMinimo = request.POST.get('stockMinimo', '')
 
         if not codigo or not nombre or not categoria_id:
-            error = "Debe ingresar los campos de código, nombre y categoria."
+            error = "Debe ingresar el código, nombre y categoría."
 
         elif not precio or not stockMinimo:
-            error = "Ingrese los campos de cantidad, precio y stock mínimo"
+            error = "Ingrese el precio y el stock mínimo."
+
+        elif Producto.objects.filter(
+            codigo_producto=codigo
+        ).exclude(id_producto=id_producto).exists():
+            error = "Ya existe un producto con ese código."
 
         elif Producto.objects.filter(
             nombre=nombre
         ).exclude(id_producto=id_producto).exists():
-            error = "Esta categoria ya existe."
-
-        elif imagen and os.path.splitext(imagen.name)[1].lower() not in ['.jpg', '.jpeg', '.png']:
-            error = "La imagen debe ser JPG, JPEG, PNG"
-
-        elif imagen and imagen.size > 2*1024*1024:
-            error = "La imagen supera los 2MB"
+            error = "Ya existe un producto con ese nombre."
 
         else:
-            categoria = get_object_or_404(
-                Categoria,
-                id_categoria=categoria_id
-            )
 
-            producto.codigo_producto = codigo
-            producto.nombre = nombre
-            producto.categoria = categoria
-            producto.descripcion = descripcion
-            producto.precio_unitario = precio
-            producto.stock_minimo = stockMinimo
+            try:
+                precio = Decimal(precio)
+                stockMinimo = Decimal(stockMinimo)
 
-            if imagen:
-                nombre_archivo = os.path.basename(imagen.name)
+                if not precio.is_finite() or not stockMinimo.is_finite():
+                    error = "Los valores numéricos deben ser válidos."
 
-                ruta_imagen = default_storage.save(
-                    f'productos/{nombre_archivo}',
-                    imagen
-                )
+                elif precio < 0:
+                    error = "El precio no puede ser menor a cero."
 
-                producto.imagen = ruta_imagen
+                elif stockMinimo < 3:
+                    error = "El stock mínimo debe ser mayor o igual a tres."
 
-            producto.save()
-            return redirect('catalogoProducto')
+            except (ValueError, InvalidOperation):
+                error = "El precio o stock mínimo tiene un formato no válido."
+
+            # Validar categoría.
+            if not error:
+
+                categoria = Categoria.objects.filter(
+                    id_categoria=categoria_id,
+                    activo=True
+                ).first()
+
+                if not categoria:
+                    error = "La categoría seleccionada no existe o está inactiva."
+
+            # Validar imagen.
+            if not error and imagen:
+
+                if os.path.splitext(imagen.name)[1].lower() not in [
+                    '.jpg', '.jpeg', '.png'
+                ]:
+                    error = "La imagen debe ser JPG, JPEG o PNG."
+
+                elif imagen.size > 2 * 1024 * 1024:
+                    error = "La imagen supera los 2MB."
+
+            # Actualizar producto.
+            if not error:
+
+                producto.codigo_producto = codigo
+                producto.nombre = nombre
+                producto.categoria = categoria
+                producto.descripcion = descripcion
+                producto.precio_unitario = precio
+                producto.stock_minimo = stockMinimo
+
+                if imagen:
+
+                    nombre_archivo = os.path.basename(imagen.name)
+
+                    ruta_imagen = default_storage.save(
+                        f'productos/{nombre_archivo}',
+                        imagen
+                    )
+
+                    producto.imagen = ruta_imagen
+
+                producto.save()
+
+                return redirect('catalogoProducto')
 
     producto.imagen_url = (
         default_storage.url(producto.imagen)
@@ -351,6 +501,7 @@ def editarProducto(request, id_producto):
         'error': error,
         'categorias': categorias
     })
+
 
 @login_required
 @require_POST
@@ -536,3 +687,124 @@ def reactivarCategoria(request, id_categoria):
 
     return redirect('registrosInactivos')
 
+@login_required
+@roles_permitidos(Usuario.ADMIN)
+def catalogoUnidades(request):
+
+    unidades = UnidadMedida.objects.filter(
+        activo=True
+    ).order_by('nombre')
+
+    return render(request, 'catalogoUnidades.html', {
+        'unidades': unidades,
+    })
+
+
+@login_required
+@roles_permitidos(Usuario.ADMIN)
+def agregarUnidad(request):
+
+    error = None
+
+    if request.method == 'POST':
+
+        nombre = request.POST.get('nombre', '').strip().upper()
+        abreviatura = request.POST.get('abreviatura', '').strip().upper()
+        tipo = request.POST.get('tipo', '').strip().upper()
+
+        if not nombre or not abreviatura or not tipo:
+            error = "Debe completar todos los campos."
+
+        elif UnidadMedida.objects.filter(nombre__iexact=nombre).exists():
+            error = "Ya existe una unidad con ese nombre."
+
+        elif UnidadMedida.objects.filter(abreviatura__iexact=abreviatura).exists():
+            error = "Ya existe una unidad con esa abreviatura."
+
+        else:
+            UnidadMedida.objects.create(
+                nombre=nombre,
+                abreviatura=abreviatura,
+                tipo=tipo
+            )
+
+            return redirect('catalogoUnidades')
+
+    return render(request, 'agregarUnidad.html', {
+        'error': error,
+        'tipos_unidad': TIPOS_UNIDAD
+    })
+
+@login_required
+@roles_permitidos(Usuario.ADMIN)
+def editarUnidad(request, id_unidad):
+
+    unidad = get_object_or_404(
+        UnidadMedida,
+        id_unidad=id_unidad
+    )
+
+    error = None
+
+    # Comprobar si la unidad está relacionada.
+    unidad_en_uso = (
+        unidad.productos_base.exists() or
+        unidad.movimientos.exists()
+    )
+
+    if request.method == 'POST':
+
+        nombre = request.POST.get(
+            'nombre', ''
+        ).strip().upper()
+
+        abreviatura = request.POST.get(
+            'abreviatura', ''
+        ).strip().upper()
+
+        if not nombre or not abreviatura:
+            error = "Debe completar el nombre y la abreviatura."
+
+        elif UnidadMedida.objects.filter(
+            nombre__iexact=nombre
+        ).exclude(id_unidad=id_unidad).exists():
+            error = "Ya existe una unidad con ese nombre."
+
+        elif UnidadMedida.objects.filter(
+            abreviatura__iexact=abreviatura
+        ).exclude(id_unidad=id_unidad).exists():
+            error = "Ya existe una unidad con esa abreviatura."
+
+        else:
+
+            # El tipo solamente se puede modificar si
+            # la unidad no tiene relaciones.
+            if not unidad_en_uso:
+
+                tipo = request.POST.get(
+                    'tipo', ''
+                ).strip().upper()
+
+                tipos_validos = dict(TIPOS_UNIDAD)
+
+                if tipo not in tipos_validos:
+                    error = "El tipo de unidad seleccionado no es válido."
+
+                else:
+                    unidad.tipo = tipo
+
+            if not error:
+
+                unidad.nombre = nombre
+                unidad.abreviatura = abreviatura
+
+                unidad.save()
+
+                return redirect('catalogoUnidades')
+
+    return render(request, 'editarUnidad.html', {
+        'unidad': unidad,
+        'error': error,
+        'tipos_unidad': TIPOS_UNIDAD,
+        'unidad_en_uso': unidad_en_uso
+    })

@@ -113,6 +113,13 @@
                     </a>
                 {% endif %}
 
+                 {% if request.user.rol == 'ADMIN' %}
+                    <a href="{% url 'catalogoUnidades' %}" class="enlace-menu">
+                        <i class="bi bi-rulers"></i>
+                        <span>Unidades</span>
+                    </a>
+                {% endif %}
+
             </div>
 
         </section>
@@ -157,7 +164,7 @@
                                 {% endif %}
                             </td>
 
-                            <td>{{ movimiento.cantidad }} unidades</td>
+                            <td>{{ movimiento.cantidad|floatformat:0 }} {{ movimiento.producto.unidad_base.abreviatura }}</td>
 
                             <td>{{ movimiento.fecha|date:"d/m/Y" }}</td>
 

@@ -35,4 +35,8 @@ urlpatterns=[
     path('reactivar-producto/<int:id_producto>/', views.reactivarProducto,name='reactivarProducto'),
     path('reactivar-categoria/<int:id_categoria>/',views.reactivarCategoria, name='reactivarCategoria'),
 
+    path('unidades/', views.catalogoUnidades, name='catalogoUnidades'),
+    path('unidades/agregar/', views.agregarUnidad, name='agregarUnidad'),
+    path('unidades/editar/<int:id_unidad>/', views.editarUnidad, name='editarUnidad'),
+
 ]

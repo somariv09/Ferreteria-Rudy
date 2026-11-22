@@ -132,16 +132,16 @@
 
                         <p class="mb-1">
                             <strong>Existencias:</strong>
-                            {{ producto.cantidad }} unidades
+                            {{ producto.cantidad|floatformat:0 }} {{ producto.unidad_base.abreviatura }}
                         </p>
 
                         <p class="mb-1">
                             <strong>Stock mínimo:</strong>
-                            {{ producto.stock_minimo }} unidades
+                            {{ producto.stock_minimo|floatformat:0 }} {{ producto.unidad_base.abreviatura }}
                         </p>
 
                         <p class="mb-3">
-                            <strong>Precio unitario:</strong>
+                            <strong>Precio por {{ producto.unidad_base.abreviatura }}:</strong>
                             ${{ producto.precio_unitario }}
                         </p>
                         
