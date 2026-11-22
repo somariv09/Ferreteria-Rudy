@@ -62,11 +62,11 @@
                         Imagen de la categoría
                     </label>
 
-                    {% if categoria.imagen %}
+                    {% if categoria.imagen_url %}
                         <div class="mb-2">
-                            <img src="{% get_media_prefix %}{{ categoria.imagen }}"
-                                 alt="{{ categoria.nombre }}"
-                                 style="max-width: 150px; max-height: 150px;">
+                            <img src="{{ categoria.imagen_url }}"
+                                alt="{{ categoria.nombre }}"
+                                style="max-width: 150px; max-height: 150px;">
                         </div>
                     {% endif %}
 

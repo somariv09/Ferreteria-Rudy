@@ -1,5 +1,4 @@
 import os
-from django.shortcuts import render, redirect
 
 from django.contrib.auth import (
     authenticate,
@@ -11,7 +10,7 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 
 from django.conf import settings
-from django.core.files.storage import FileSystemStorage
+from django.core.files.storage import default_storage
 
 from django.db import transaction
 from django.utils import timezone
@@ -237,22 +236,34 @@ def eliminarMovimiento(request, id_movimiento):
 def catalogoProducto(request):
     buscar = request.GET.get('buscar', '').strip()
     disponibilidad = request.GET.get('disponibilidad', 'todos')
-    
+
     productos = Producto.objects.filter(activo=True).order_by('nombre')
-    
+
     if buscar:
-        #icontains sirve para buscar coincidencias sin distinguir mayus de minus
-        productos = productos.filter(Q(nombre__icontains=buscar) | Q(codigo_producto__icontains=buscar))
+        productos = productos.filter(
+            Q(nombre__icontains=buscar) |
+            Q(codigo_producto__icontains=buscar)
+        )
 
     if disponibilidad == 'suficiente':
-        #__gt muestra cuando se supera al minimo
         productos = productos.filter(cantidad__gt=F('stock_minimo'))
 
     elif disponibilidad == 'bajo':
-            #__gt muestra cuando se supera al minimo
-            productos = productos.filter(cantidad__lte=F('stock_minimo'))
+        productos = productos.filter(cantidad__lte=F('stock_minimo'))
 
-    return render(request, 'catalogoProducto.html', { 'productos': productos, 'filtros': {'buscar': buscar, 'disponibilidad': disponibilidad}})
+    for producto in productos:
+        producto.imagen_url = (
+            default_storage.url(producto.imagen)
+            if producto.imagen else None
+        )
+
+    return render(request, 'catalogoProducto.html', {
+        'productos': productos,
+        'filtros': {
+            'buscar': buscar,
+            'disponibilidad': disponibilidad
+        }
+    })
 
 @login_required
 def agregarProducto(request):
@@ -297,20 +308,21 @@ def agregarProducto(request):
             except(ValueError, InvalidOperation):
                 error= "La cantidad, precio o stock minimo no tiene un formato válido"
     
-        if imagen and os.path.splitext(imagen.name)[1].lower() not in ['.jpg', '.jpeg', '.png']:
+            if not error and imagen:
+
+                if os.path.splitext(imagen.name)[1].lower() not in ['.jpg', '.jpeg', '.png']:
                     error = "La imagen debe ser JPG, JPEG, PNG"
-        
-        elif imagen and imagen.size >2*1024*1024:
-                    error="La imagen supera los 2MB"
-            
-        else:
-            ruta_imagen= None
 
-            if imagen:
-                almacenamiento=FileSystemStorage(location=settings.MEDIA_ROOT)
-                nombre_archivo=os.path.basename(imagen.name)
+                elif imagen.size > 2*1024*1024:
+                    error = "La imagen supera los 2MB"
 
-                ruta_imagen=almacenamiento.save(f'productos/{nombre_archivo}', imagen)
+                else:
+                    nombre_archivo = os.path.basename(imagen.name)
+
+                    ruta_imagen = default_storage.save(
+                        f'productos/{nombre_archivo}',
+                        imagen
+                    )
         
         if not error:
             Producto.objects.create(
@@ -328,64 +340,74 @@ def agregarProducto(request):
 
 @login_required
 def editarProducto(request, id_producto):
-     #get_object_or_404 busca por el id en la base de datos, si existe
-        # devuelve el registro de lo contrario manda el error
-        producto = get_object_or_404(Producto, id_producto=id_producto)
-        categorias=Categoria.objects.filter(activo=True).order_by('nombre')
-        error = None
-    
-        if request.method == "POST":
-                imagen=request.FILES.get('imagen')
-                codigo=request.POST.get('codigo','').strip().upper()
-                nombre=request.POST.get('nombre','').strip().upper()
-                #Recibe el valor numerico del id
-                categoria_id=request.POST.get('categoria','')
-                descripcion=request.POST.get('descripcion','').strip()
-                precio=request.POST.get('precio','')
-                stockMinimo=request.POST.get('stockMinimo','')
 
+    producto = get_object_or_404(Producto, id_producto=id_producto)
+    categorias = Categoria.objects.filter(activo=True).order_by('nombre')
+    error = None
 
+    if request.method == "POST":
 
-                if not codigo or not nombre or not categoria_id:
-                    error="Debe ingresar los campos de código, nombre y categoria."
-                    
-                elif not precio or not stockMinimo:
-                    error="Ingrese los campos de cantidad, precio y stock mínimo"
-    
-                #con exclude evitamos que el sistema tome en cuenta lo que estamos editando a la hora de comparar si existe.
-                elif Producto.objects.filter(nombre=nombre).exclude(id_producto=id_producto).exists():
-                    error = "Esta categoria ya existe."
-        
-                elif imagen and os.path.splitext(imagen.name)[1].lower() not in ['.jpg', '.jpeg', '.png']:
-                    error = "La imagen debe ser JPG, JPEG, PNG"
-        
-                elif imagen and imagen.size >2*1024*1024:
-                    error="La imagen supera los 2MB"
-            
-                else:
-                    categorias= get_object_or_404(Categoria, id_categoria=categoria_id)
-                    producto.codigo_producto=codigo
-                    producto.nombre=nombre
-                    producto.categoria= categorias
-                    producto.descripcion=descripcion
-                    producto.precio_unitario=precio
-                    producto.stock_minimo=stockMinimo
+        imagen = request.FILES.get('imagen')
+        codigo = request.POST.get('codigo', '').strip().upper()
+        nombre = request.POST.get('nombre', '').strip().upper()
+        categoria_id = request.POST.get('categoria', '')
+        descripcion = request.POST.get('descripcion', '').strip()
+        precio = request.POST.get('precio', '')
+        stockMinimo = request.POST.get('stockMinimo', '')
 
-    
-                    if imagen:
-                        almacenamiento = FileSystemStorage(location=settings.MEDIA_ROOT)
-                        nombre_archivo = os.path.basename(imagen.name)
-    
-                        ruta_imagen = almacenamiento.save(
-                            f'productos/{nombre_archivo}', imagen
-                        )
-    
-                        producto.imagen = ruta_imagen
-    
-                    producto.save()
-                    return redirect('catalogoProducto')
-        
-        return render(request, 'editarProducto.html', {'producto':producto, 'error':error, 'categorias':categorias})
+        if not codigo or not nombre or not categoria_id:
+            error = "Debe ingresar los campos de código, nombre y categoria."
+
+        elif not precio or not stockMinimo:
+            error = "Ingrese los campos de cantidad, precio y stock mínimo"
+
+        elif Producto.objects.filter(
+            nombre=nombre
+        ).exclude(id_producto=id_producto).exists():
+            error = "Esta categoria ya existe."
+
+        elif imagen and os.path.splitext(imagen.name)[1].lower() not in ['.jpg', '.jpeg', '.png']:
+            error = "La imagen debe ser JPG, JPEG, PNG"
+
+        elif imagen and imagen.size > 2*1024*1024:
+            error = "La imagen supera los 2MB"
+
+        else:
+            categoria = get_object_or_404(
+                Categoria,
+                id_categoria=categoria_id
+            )
+
+            producto.codigo_producto = codigo
+            producto.nombre = nombre
+            producto.categoria = categoria
+            producto.descripcion = descripcion
+            producto.precio_unitario = precio
+            producto.stock_minimo = stockMinimo
+
+            if imagen:
+                nombre_archivo = os.path.basename(imagen.name)
+
+                ruta_imagen = default_storage.save(
+                    f'productos/{nombre_archivo}',
+                    imagen
+                )
+
+                producto.imagen = ruta_imagen
+
+            producto.save()
+            return redirect('catalogoProducto')
+
+    producto.imagen_url = (
+        default_storage.url(producto.imagen)
+        if producto.imagen else None
+    )
+
+    return render(request, 'editarProducto.html', {
+        'producto': producto,
+        'error': error,
+        'categorias': categorias
+    })
 
 @login_required
 def eliminarProducto(request, id_producto):
@@ -403,10 +425,18 @@ def catalogoCategoria(request):
     categorias = Categoria.objects.filter(activo=True).order_by('nombre')
 
     if buscar:
-        #icontains sirve para buscar coincidencias sin distinguir mayus de minus
         categorias = categorias.filter(nombre__icontains=buscar)
 
-    return render(request, 'catalogoCategoria.html', { 'categorias': categorias, 'filtros': {'buscar': buscar}})
+    for categoria in categorias:
+        categoria.imagen_url = (
+            default_storage.url(categoria.imagen)
+            if categoria.imagen else None
+        )
+
+    return render(request, 'catalogoCategoria.html', {
+        'categorias': categorias,
+        'filtros': {'buscar': buscar}
+    })
 
 @login_required
 def agregarCategoria(request):
@@ -433,10 +463,11 @@ def agregarCategoria(request):
             ruta_imagen= None
 
             if imagen:
-                almacenamiento=FileSystemStorage(location=settings.MEDIA_ROOT)
-                nombre_archivo=os.path.basename(imagen.name)
-
-                ruta_imagen=almacenamiento.save(f'categorias/{nombre_archivo}', imagen)
+                nombre_archivo = os.path.basename(imagen.name)
+                ruta_imagen = default_storage.save(
+                    f'categorias/{nombre_archivo}',
+                    imagen
+                )
 
         if not error:
             Categoria.objects.create(
@@ -450,47 +481,56 @@ def agregarCategoria(request):
 
 @login_required
 def editarCategoria(request, id_categoria):
-    #get_object_or_404 busca por el id en la base de datos, si existe
-    # devuelve el registro de lo contrario manda el error
+
     categoria = get_object_or_404(Categoria, id_categoria=id_categoria)
     error = None
 
     if request.method == "POST":
-            nombre=request.POST.get('nombre', '').strip().upper()
-            descripcion=request.POST.get('descripcion', '').strip()
-            imagen=request.FILES.get('imagen')
-    
-            if not nombre:
-                error="Ingrese el nombre de la categoria"
 
-            #con exclude evitamos que el sistema tome en cuenta lo que estamos editando a la hora de comparar si existe.
-            elif Categoria.objects.filter(nombre=nombre).exclude(id_categoria=id_categoria).exists():
-                error = "Esta categoria ya existe."
-    
-            elif imagen and os.path.splitext(imagen.name)[1].lower() not in ['.jpg', '.jpeg', '.png']:
-                error = "La imagen debe ser JPG, JPEG, PNG"
-    
-            elif imagen and imagen.size >2*1024*1024:
-                error="La imagen supera los 2MB"
-        
-            else:
-                categoria.nombre=nombre
-                categoria.descripcion=descripcion
+        nombre = request.POST.get('nombre', '').strip().upper()
+        descripcion = request.POST.get('descripcion', '').strip()
+        imagen = request.FILES.get('imagen')
 
-                if imagen:
-                    almacenamiento = FileSystemStorage(location=settings.MEDIA_ROOT)
-                    nombre_archivo = os.path.basename(imagen.name)
+        if not nombre:
+            error = "Ingrese el nombre de la categoria"
 
-                    ruta_imagen = almacenamiento.save(
-                        f'categorias/{nombre_archivo}', imagen
-                    )
+        elif Categoria.objects.filter(
+            nombre=nombre
+        ).exclude(id_categoria=id_categoria).exists():
+            error = "Esta categoria ya existe."
 
-                    categoria.imagen = ruta_imagen
+        elif imagen and os.path.splitext(imagen.name)[1].lower() not in ['.jpg', '.jpeg', '.png']:
+            error = "La imagen debe ser JPG, JPEG, PNG"
 
-                categoria.save()
-                return redirect('catalogoCategoria')
-    
-    return render(request, 'editarCategoria.html', {'categoria':categoria, 'error':error})
+        elif imagen and imagen.size > 2*1024*1024:
+            error = "La imagen supera los 2MB"
+
+        else:
+            categoria.nombre = nombre
+            categoria.descripcion = descripcion
+
+            if imagen:
+                nombre_archivo = os.path.basename(imagen.name)
+
+                ruta_imagen = default_storage.save(
+                    f'categorias/{nombre_archivo}',
+                    imagen
+                )
+
+                categoria.imagen = ruta_imagen
+
+            categoria.save()
+            return redirect('catalogoCategoria')
+
+    categoria.imagen_url = (
+        default_storage.url(categoria.imagen)
+        if categoria.imagen else None
+    )
+
+    return render(request, 'editarCategoria.html', {
+        'categoria': categoria,
+        'error': error
+    })
 
 @login_required
 def eliminarCategoria(request, id_categoria):

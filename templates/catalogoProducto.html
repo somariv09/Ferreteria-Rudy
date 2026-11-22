@@ -29,7 +29,8 @@
                 <form method="POST" action="{% url 'logout' %}">
                     {% csrf_token %}
                     <button type="submit" class="cerrar-sesion" title="Cerrar Sesión" aria-label="Cerrar sesión">
-                        <i class="bi bi-box-arrow-right" ></i></button>
+                        <i class="bi bi-box-arrow-right"></i>
+                    </button>
                 </form>
             </div>
 
@@ -92,18 +93,15 @@
         <div class="row g-4">
 
             {% for producto in productos %}
+
             <div class="col-sm-6 col-lg-4">
 
                 <article class="card h-100 shadow-sm tarjeta-producto">
 
-                    {% if producto.imagen %}
-                        <img src="{% get_media_prefix %}{{ producto.imagen }}" class="card-img-top"
+                    {% if producto.imagen_url %}
+                        <img src="{{ producto.imagen_url }}"
+                             class="card-img-top"
                              alt="{{ producto.nombre }}">
-                    {% else %}
-                        <div class="text-center p-4 bg-light">
-                            <i class="bi bi-image fs-1 text-secondary"></i>
-                            <p class="mb-0 text-secondary">Sin imagen</p>
-                        </div>
                     {% endif %}
 
                     <div class="card-body d-flex flex-column">
@@ -165,6 +163,7 @@
                         </div>
 
                     </div>
+
                 </article>
 
             </div>
@@ -219,11 +218,13 @@
             </div>
 
             {% empty %}
+
             <div class="col-12">
                 <div class="alert alert-info text-center">
                     No se encontraron productos.
                 </div>
             </div>
+
             {% endfor %}
 
         </div>
@@ -239,7 +240,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-     <script>
+    <script>
         const formulario = document.querySelector('.panel-registros form');
         const buscar = document.getElementById('buscar');
         const disponibilidad = document.getElementById('disponibilidad');
@@ -259,3 +260,4 @@
 
 </body>
 </html>
+
