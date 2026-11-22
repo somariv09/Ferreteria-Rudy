@@ -1,13 +1,19 @@
 from django.urls import path
 from . import views
+from usuarios import views as usuarios_views
 
 urlpatterns=[
     path('', views.dashboard, name='dashboard'),
 
-    path('login/', views.login, name='login'),
-    path('logout/', views.logout, name='logout'),
+    path('login/', usuarios_views.login, name='login'),
+    path('logout/', usuarios_views.logout, name='logout'),
     # Verificación de identidad para reactivar registros
-    path('verificar-reactivacion/',views.login, {'modo': 'reactivacion'}, name='verificarReactivacion'),
+    path('verificar-reactivacion/', usuarios_views.login, {'modo': 'reactivacion'}, name='verificarReactivacion'),
+    path('usuarios/', usuarios_views.catalogoUsuarios, name='catalogoUsuarios'),
+    path('usuarios/agregar/', usuarios_views.agregarUsuario,name='agregarUsuario'),
+    path('usuarios/editar/<int:id_usuario>/', usuarios_views.editarUsuario, name='editarUsuario'),
+    path('usuarios/desactivar/<int:id_usuario>/',usuarios_views.desactivarUsuario,name='desactivarUsuario'),
+    path('usuarios/activar/<int:id_usuario>/', usuarios_views.activarUsuario, name='activarUsuario'),
 
     path('productos/', views.catalogoProducto, name='catalogoProducto'),
     path('producto/agregar/', views.agregarProducto, name='agregarProducto'),
@@ -29,5 +35,4 @@ urlpatterns=[
     path('reactivar-producto/<int:id_producto>/', views.reactivarProducto,name='reactivarProducto'),
     path('reactivar-categoria/<int:id_categoria>/',views.reactivarCategoria, name='reactivarCategoria'),
 
-    path('mi-cuenta/editar/', views.editarMiCuenta, name='editarMiCuenta'),
 ]

@@ -106,15 +106,12 @@
                     <span>Registrar salida de producto</span>
                 </a>
 
-                <a href="{% url 'registrosInactivos' %}" class="enlace-menu">
-                    <i class="bi bi-arrow-counterclockwise"></i>
-                    <span>Registros inactivos</span>
-                </a>
-
-                <a href="{% url 'editarMiCuenta' %}" class="enlace-menu">
-                    <i class="bi bi-person-circle"></i>
-                    Mi cuenta
-                </a>
+                {% if request.user.rol == 'ADMIN' %}
+                    <a href="{% url 'registrosInactivos' %}" class="enlace-menu">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                        <span>Registros inactivos</span>
+                    </a>
+                {% endif %}
 
             </div>
 

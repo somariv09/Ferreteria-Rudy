@@ -38,12 +38,13 @@
     </header>
 
     <main class="contenedor-principal">
-
         <section class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
-            <a href="{% url 'agregarProducto' %}" class="btn btn-success">
-                <i class="bi bi-plus-circle me-1"></i>
-                Agregar producto
-            </a>
+            {% if request.user.rol == 'ADMIN' %}
+                <a href="{% url 'agregarProducto' %}" class="btn btn-success">
+                    <i class="bi bi-plus-circle me-1"></i>
+                    Agregar Producto
+                </a>
+            {% endif %}
         </section>
 
         <section class="panel-registros mb-4">
@@ -143,24 +144,28 @@
                             <strong>Precio unitario:</strong>
                             ${{ producto.precio_unitario }}
                         </p>
+                        
+                        {% if request.user.rol == 'ADMIN' %}
 
-                        <div class="d-flex gap-2 mt-auto">
+                            <div class="d-flex gap-2 mt-auto">
 
-                            <a href="{% url 'editarProducto' producto.id_producto %}"
+                                <a href="{% url 'editarProducto' producto.id_producto %}"
                                class="btn btn-outline-success btn-sm flex-fill">
                                 <i class="bi bi-pencil-square"></i>
                                 Editar
-                            </a>
+                                </a>
 
-                            <button type="button"
-                                    class="btn btn-outline-danger btn-sm flex-fill"
-                                    data-bs-toggle="modal"
-                                    data-bs-target="#modalEliminar{{ producto.id_producto }}">
-                                <i class="bi bi-trash"></i>
-                                Eliminar
-                            </button>
+                                <button type="button"
+                                        class="btn btn-outline-danger btn-sm flex-fill"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#modalEliminar{{ producto.id_producto }}">
+                                    <i class="bi bi-trash"></i>
+                                    Eliminar
+                                </button>
 
-                        </div>
+                            </div>
+
+                        {% endif %}
 
                     </div>
 
@@ -168,6 +173,7 @@
 
             </div>
 
+            {% if request.user.rol == 'ADMIN' %}
             <!-- Ventana emergente para confirmar eliminación -->
             <div class="modal fade"
                  id="modalEliminar{{ producto.id_producto }}"
@@ -216,6 +222,7 @@
                     </div>
                 </div>
             </div>
+            {% endif %}
 
             {% empty %}
 

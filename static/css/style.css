@@ -577,6 +577,34 @@ form button.cerrar-sesion:hover {
         grid-template-columns: 1fr;
     }
 }
+
+
+/* ===== GESTIÓN DE USUARIOS ===== */
+
+.boton-accion-principal {
+    padding: 11px 18px;
+    color: #ffffff;
+    background-color: var(--verde-principal);
+    border: 1px solid var(--verde-principal);
+    border-radius: 6px;
+    font-weight: bold;
+}
+
+.boton-accion-principal:hover:not(:disabled) {
+    color: #ffffff;
+    background-color: var(--verde-oscuro);
+    border-color: var(--verde-oscuro);
+}
+
+.tabla-movimientos td {
+    vertical-align: middle;
+}
+
+.tabla-movimientos .badge {
+    padding: 7px 10px;
+    font-size: 0.8rem;
+}
+
 /* ===== ADAPTACIÓN A MÓVILES ===== */
 
 @media (max-width: 600px) {

@@ -121,6 +121,7 @@
                             <td>{{ movimiento.cantidad }} unidades</td>
                             <td>{{ movimiento.usuario.nombre }}</td>
                             <td>
+                                {% if request.user.rol == 'ADMIN' %}
                                 <div class="d-flex gap-2">
                                     <a href="{% url 'editar_movimiento' movimiento.id_movimiento %}"
                                        class="btn btn-sm btn-outline-success"
@@ -135,9 +136,11 @@
                                         Eliminar
                                     </button>
                                 </div>
+                                {% endif %}
                             </td>
                         </tr>
 
+                        {% if request.user.rol == 'ADMIN' %}
                         <!-- Ventana emergente para confirmar eliminación -->
                         <div class="modal fade"
                             id="modalEliminar{{movimiento.id_movimiento }}"
@@ -190,6 +193,7 @@
                                 </div>
                             </div>
                         </div>
+                        {% endif %}
 
                         {% empty %}
                         <tr>

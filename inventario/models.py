@@ -1,5 +1,7 @@
-
 from django.db import models
+from django.core.validators import MinValueValidator
+from decimal import Decimal
+from django.utils import timezone
 
 
 class Categoria(models.Model):
@@ -31,6 +33,32 @@ class Categoria(models.Model):
         return self.nombre
 
 
+class UnidadMedida(models.Model):
+
+    id_unidad = models.AutoField(primary_key=True)
+
+    nombre = models.CharField(
+        max_length=50,
+        unique=True
+    )
+
+    abreviatura = models.CharField(
+        max_length=15,
+        unique=True
+    )
+
+    tipo = models.CharField(max_length=20)
+
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'unidad_medida'
+        managed = False
+
+    def __str__(self):
+        return f"{self.nombre} ({self.abreviatura})"
+
+
 class Producto(models.Model):
 
     id_producto = models.AutoField(primary_key=True)
@@ -48,14 +76,22 @@ class Producto(models.Model):
         blank=True
     )
 
-    cantidad = models.IntegerField(default=0)
+    cantidad = models.DecimalField(
+        max_digits=18,
+        decimal_places=6,
+        default=Decimal('0')
+    )
 
     precio_unitario = models.DecimalField(
         max_digits=10,
         decimal_places=2
     )
 
-    stock_minimo = models.IntegerField(default=0)
+    stock_minimo = models.DecimalField(
+        max_digits=18,
+        decimal_places=6,
+        default=Decimal('0')
+    )
 
     activo = models.BooleanField(default=True)
 
@@ -72,12 +108,59 @@ class Producto(models.Model):
         related_name='productos'
     )
 
+    unidad_base = models.ForeignKey(
+        UnidadMedida,
+        on_delete=models.DO_NOTHING,
+        db_column='id_unidad_base',
+        related_name='productos_base'
+    )
+
     class Meta:
         db_table = 'producto'
         managed = False
 
     def __str__(self):
         return self.nombre
+
+
+class ConversionProducto(models.Model):
+
+    id_conversion = models.AutoField(primary_key=True)
+
+    producto = models.ForeignKey(
+        Producto,
+        on_delete=models.DO_NOTHING,
+        db_column='id_producto',
+        related_name='conversiones'
+    )
+
+    unidad = models.ForeignKey(
+        UnidadMedida,
+        on_delete=models.DO_NOTHING,
+        db_column='id_unidad',
+        related_name='conversiones'
+    )
+
+    factor = models.DecimalField(
+        max_digits=18,
+        decimal_places=8,
+        validators=[MinValueValidator(Decimal('0.00000001'))]
+    )
+
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'conversion_producto'
+        managed = False
+        constraints = [
+            models.UniqueConstraint(
+                fields=['producto', 'unidad'],
+                name='uq_conversion_producto_unidad'
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.producto.nombre} - {self.unidad.abreviatura}"
 
 
 class Movimiento(models.Model):
@@ -102,9 +185,22 @@ class Movimiento(models.Model):
         choices=TIPOS_MOVIMIENTO
     )
 
-    cantidad = models.IntegerField()
+    cantidad = models.DecimalField(
+        max_digits=18,
+        decimal_places=8
+    )
 
-    fecha = models.DateTimeField(auto_now_add=False)
+    fecha = models.DateTimeField(default=timezone.now)
+
+    factor_conversion = models.DecimalField(
+        max_digits=18,
+        decimal_places=8
+    )
+
+    cantidad_base = models.DecimalField(
+        max_digits=18,
+        decimal_places=8
+    )
 
     usuario = models.ForeignKey(
         'usuarios.Usuario',
@@ -117,6 +213,13 @@ class Movimiento(models.Model):
         Producto,
         on_delete=models.DO_NOTHING,
         db_column='id_producto',
+        related_name='movimientos'
+    )
+
+    unidad = models.ForeignKey(
+        UnidadMedida,
+        on_delete=models.DO_NOTHING,
+        db_column='id_unidad',
         related_name='movimientos'
     )
 

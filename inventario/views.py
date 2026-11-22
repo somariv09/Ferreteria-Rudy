@@ -22,78 +22,13 @@ from django.db.models import Q, F
 from django.shortcuts import render, redirect, get_object_or_404 
 
 from .models import Categoria, Producto, Movimiento
+from usuarios.views import (tiene_autorizacion_reactivacion, roles_permitidos)
+
 from usuarios.models import Usuario
 
-#request solicitud del navegador
-def login(request, modo='normal'):
-
-    # Si se intenta verificar identidad sin haber iniciado sesión,
-    # primero debe realizarse el inicio de sesión normal.
-    if modo == 'reactivacion' and not request.user.is_authenticated:
-        return redirect('login')
-
-    # En el inicio de sesión normal no hace falta mostrar el formulario
-    # si ya existe una sesión.
-    if modo == 'normal' and request.user.is_authenticated:
-        return redirect('dashboard')
-
-    error = None
-
-    if request.method == 'POST':
-
-        usuario = request.POST.get('usuario', '').strip()
-        password = request.POST.get('password', '')
-
-        user = authenticate(
-            request,
-            username=usuario,
-            password=password
-        )
-
-        if modo == 'reactivacion':
-
-            # Comprobar que las credenciales pertenecen al usuario
-            # que ya tiene iniciada la sesión.
-            if user is not None and user.pk == request.user.pk:
-
-                # Autorizar reactivaciones durante cinco minutos.
-                request.session['reactivacion_autorizada_hasta'] = (int(time.time()) + 300)
-
-                return redirect('registrosInactivos')
-
-            error = "LAS CREDENCIALES NO CORRESPONDEN AL USUARIO ACTUAL"
-
-        else:
-
-            if user is not None:
-                auth_login(request, user)
-                return redirect('dashboard')
-
-            error = "USUARIO O CONTRASEÑA INCORRECTOS"
-
-    return render(request, 'login.html', {'error': error,'modo': modo })
-
-def tiene_autorizacion_reactivacion(request):
-
-    tiempo_limite = request.session.get('reactivacion_autorizada_hasta')
-
-    if tiempo_limite is None:
-        return False
-
-    if int(time.time()) > tiempo_limite:
-        request.session.pop('reactivacion_autorizada_hasta', None)
-        return False
-
-    return True
-
-#Requiere el envio de una solicitud
-@require_POST
-def logout(request):
-    #Meotod de django que cierra la sesion
-    auth_logout(request)
-    return redirect('login')
 
 @login_required
+@roles_permitidos(Usuario.ADMIN, Usuario.USUARIO)
 def dashboard(request):
     # Obtener productos activos
     productos = Producto.objects.filter(activo=True)
@@ -121,6 +56,7 @@ def dashboard(request):
     return render(request, 'dashboard.html', contexto)
 
 @login_required
+@roles_permitidos(Usuario.ADMIN, Usuario.USUARIO)
 def registroEntrada(request):
     error=None
 
@@ -171,6 +107,7 @@ def registroEntrada(request):
     return render(request, 'registroEntrada.html', {'error':error, 'productos':productos})
 
 @login_required
+@roles_permitidos(Usuario.ADMIN, Usuario.USUARIO)
 def registroSalida(request):
     error=None
     
@@ -221,18 +158,22 @@ def registroSalida(request):
     return render(request, 'registroSalida.html', {'error':error, 'productos':productos})
 
 @login_required
+@roles_permitidos(Usuario.ADMIN, Usuario.USUARIO)
 def historial(request):
     return render(request, 'historial.html')
 
 @login_required
+@roles_permitidos(Usuario.ADMIN)
 def editarMovimiento(request):
     return render(request, 'editarMovimiento.html')
 
-@login_required
+@require_POST
+@roles_permitidos(Usuario.ADMIN)
 def eliminarMovimiento(request, id_movimiento):
     return render(request, 'historial.html')
 
 @login_required
+@roles_permitidos(Usuario.ADMIN, Usuario.USUARIO)
 def catalogoProducto(request):
     buscar = request.GET.get('buscar', '').strip()
     disponibilidad = request.GET.get('disponibilidad', 'todos')
@@ -266,6 +207,7 @@ def catalogoProducto(request):
     })
 
 @login_required
+@roles_permitidos(Usuario.ADMIN)
 def agregarProducto(request):
     error= None
 
@@ -339,6 +281,7 @@ def agregarProducto(request):
     return render(request, 'agregarProducto.html', {'error':error, "categorias":categorias})
 
 @login_required
+@roles_permitidos(Usuario.ADMIN)
 def editarProducto(request, id_producto):
 
     producto = get_object_or_404(Producto, id_producto=id_producto)
@@ -410,6 +353,8 @@ def editarProducto(request, id_producto):
     })
 
 @login_required
+@require_POST
+@roles_permitidos(Usuario.ADMIN)
 def eliminarProducto(request, id_producto):
     producto = get_object_or_404(Producto, id_producto=id_producto)
 
@@ -419,6 +364,7 @@ def eliminarProducto(request, id_producto):
     return redirect("catalogoProducto")
 
 @login_required
+@roles_permitidos(Usuario.ADMIN, Usuario.USUARIO)
 def catalogoCategoria(request):
     buscar = request.GET.get('buscar', '').strip()
 
@@ -439,6 +385,7 @@ def catalogoCategoria(request):
     })
 
 @login_required
+@roles_permitidos(Usuario.ADMIN)
 def agregarCategoria(request):
     error=None
 
@@ -480,6 +427,7 @@ def agregarCategoria(request):
     return render(request, 'agregarCategoria.html', {'error':error})
 
 @login_required
+@roles_permitidos(Usuario.ADMIN)
 def editarCategoria(request, id_categoria):
 
     categoria = get_object_or_404(Categoria, id_categoria=id_categoria)
@@ -533,6 +481,8 @@ def editarCategoria(request, id_categoria):
     })
 
 @login_required
+@require_POST
+@roles_permitidos(Usuario.ADMIN)
 def eliminarCategoria(request, id_categoria):
     categoria = get_object_or_404(Categoria, id_categoria=id_categoria)
     categoria.activo = False
@@ -541,6 +491,7 @@ def eliminarCategoria(request, id_categoria):
     return redirect('catalogoCategoria')
 
 @login_required
+@roles_permitidos(Usuario.ADMIN)
 def registrosInactivos(request):
 
     if not tiene_autorizacion_reactivacion(request):
@@ -557,6 +508,7 @@ def registrosInactivos(request):
 
 @login_required
 @require_POST
+@roles_permitidos(Usuario.ADMIN)
 def reactivarProducto(request, id_producto):
 
     if not tiene_autorizacion_reactivacion(request):
@@ -571,6 +523,7 @@ def reactivarProducto(request, id_producto):
 
 @login_required
 @require_POST
+@roles_permitidos(Usuario.ADMIN)
 def reactivarCategoria(request, id_categoria):
 
     if not tiene_autorizacion_reactivacion(request):
@@ -583,48 +536,3 @@ def reactivarCategoria(request, id_categoria):
 
     return redirect('registrosInactivos')
 
-@login_required
-def editarMiCuenta(request):
-
-    usuario_actual = request.user
-    error = None
-    exito = None
-
-    if request.method == 'POST':
-
-        nombre = request.POST.get('nombre', '').strip()
-        nuevo_usuario = request.POST.get('usuario', '').strip()
-        nueva_password = request.POST.get('nueva_password', '')
-        confirmar_password = request.POST.get('confirmar_password', '')
-
-        if not nombre or not nuevo_usuario:
-            error = 'EL NOMBRE Y EL USUARIO SON OBLIGATORIOS'
-
-        elif Usuario.objects.exclude(
-            pk=usuario_actual.pk
-        ).filter(usuario=nuevo_usuario).exists():
-            error = 'EL NOMBRE DE USUARIO YA ESTÁ EN USO'
-
-        elif nueva_password and nueva_password != confirmar_password:
-            error = 'LAS CONTRASEÑAS NO COINCIDEN'
-
-        else:
-
-            usuario_actual.nombre = nombre
-            usuario_actual.usuario = nuevo_usuario
-
-            if nueva_password:
-                usuario_actual.set_password(nueva_password)
-
-            usuario_actual.save()
-
-            if nueva_password:
-                update_session_auth_hash(request, usuario_actual)
-
-            exito = 'LOS DATOS DE TU CUENTA SE ACTUALIZARON CORRECTAMENTE'
-
-    return render(request, 'editarCuenta.html', {
-        'error': error,
-        'exito': exito,
-        'usuario': usuario_actual
-    })

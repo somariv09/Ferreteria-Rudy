@@ -40,10 +40,12 @@
     <main class="contenedor-principal">
 
         <section class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
-            <a href="{% url 'agregarCategoria' %}" class="btn btn-success">
-                <i class="bi bi-plus-circle me-1"></i>
-                Agregar categoría
-            </a>
+            {% if request.user.rol == 'ADMIN' %}
+                <a href="{% url 'agregarCategoria' %}" class="btn btn-success">
+                    <i class="bi bi-plus-circle me-1"></i>
+                    Agregar categoría
+                </a>
+            {% endif %}
         </section>
 
         <section class="panel-registros mb-4">
@@ -90,29 +92,34 @@
                             {{ categoria.descripcion|default:"Sin descripción" }}
                         </p>
 
-                        <div class="d-flex gap-2 mt-auto">
+                        {% if request.user.rol == 'ADMIN' %}
 
-                            <a href="{% url 'editarCategoria' categoria.id_categoria %}"
-                               class="btn btn-outline-success btn-sm flex-fill">
-                                <i class="bi bi-pencil-square"></i>
-                                Editar
-                            </a>
+                            <div class="d-flex gap-2 mt-auto">
 
-                            <button type="button"
-                                    class="btn btn-outline-danger btn-sm flex-fill"
-                                    data-bs-toggle="modal"
-                                    data-bs-target="#modalEliminar{{ categoria.id_categoria }}">
-                                <i class="bi bi-trash"></i>
-                                Eliminar
-                            </button>
+                                <a href="{% url 'editarCategoria' categoria.id_categoria %}"
+                                class="btn btn-outline-success btn-sm flex-fill">
+                                    <i class="bi bi-pencil-square"></i>
+                                    Editar
+                                </a>
 
-                        </div>
+                                <button type="button"
+                                        class="btn btn-outline-danger btn-sm flex-fill"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#modalEliminar{{ categoria.id_categoria }}">
+                                    <i class="bi bi-trash"></i>
+                                    Eliminar
+                                </button>
+
+                            </div>
+
+                        {% endif %}
 
                     </div>
                 </article>
 
             </div>
 
+            {% if request.user.rol == 'ADMIN' %}
             <!-- Ventana emergente para confirmar eliminación -->
             <div class="modal fade"
                  id="modalEliminar{{ categoria.id_categoria }}"
@@ -161,6 +168,7 @@
                     </div>
                 </div>
             </div>
+             {% endif %}
 
             {% empty %}
             <div class="col-12">
