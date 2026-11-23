@@ -198,52 +198,20 @@ def registroSalida(request):
 @login_required
 @roles_permitidos(Usuario.ADMIN, Usuario.USUARIO)
 def historial(request):
-    movimientos = Movimiento.objects.select_related(
-        'producto', 'usuario', 'unidad'
-    ).order_by('-fecha', '-id_movimiento')
-
-    buscar = request.GET.get('buscar', '').strip()
-    tipo = request.GET.get('tipo', 'todos')
-    desde = request.GET.get('desde', '')
-    hasta = request.GET.get('hasta', '')
-
-    if buscar:
-        movimientos = movimientos.filter(
-            Q(producto__nombre__icontains=buscar) |
-            Q(producto__codigo_producto__icontains=buscar)
-        )
-
-    if tipo in ['ENTRADA', 'SALIDA']:
-        movimientos = movimientos.filter(
-            tipo_movimiento=tipo
-        )
-
-    from django.utils.dateparse import parse_date
-
-    fecha_desde = parse_date(desde) if desde else None
-    fecha_hasta = parse_date(hasta) if hasta else None
-
-    if fecha_desde:
-        movimientos = movimientos.filter(
-            fecha__date__gte=fecha_desde
-        )
-
-    if fecha_hasta:
-        movimientos = movimientos.filter(
-            fecha__date__lte=fecha_hasta
-        )
+    movimientos = Movimiento.objects.all().order_by('-fecha')
 
     contexto = {
         'movimientos': movimientos,
         'filtros': {
-            'buscar': buscar,
-            'tipo': tipo,
-            'desde': desde,
-            'hasta': hasta,
+            'buscar': '',
+            'tipo': 'todos',
+            'desde': '',
+            'hasta': '',
         }
     }
 
     return render(request, 'historial.html', contexto)
+
 
 
 @login_required
