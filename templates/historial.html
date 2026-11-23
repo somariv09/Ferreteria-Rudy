@@ -123,7 +123,7 @@
                             <td>
                                 {% if request.user.rol == 'ADMIN' %}
                                 <div class="d-flex gap-2">
-                                    <a href="{% url 'editarMovimiento' movimiento.id_movimiento %}"
+                                    <a href="{% url 'editar_movimiento' movimiento.id_movimiento %}"
                                        class="btn btn-sm btn-outline-success"
                                        title="Editar movimiento">
                                         <i class="bi bi-pencil-square"></i>
