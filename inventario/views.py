@@ -198,6 +198,7 @@ def registroSalida(request):
 @login_required
 @roles_permitidos(Usuario.ADMIN, Usuario.USUARIO)
 def historial(request):
+    timezone.activate('America/El_Salvador')
 
     movimientos = Movimiento.objects.all().order_by('-fecha')
 
